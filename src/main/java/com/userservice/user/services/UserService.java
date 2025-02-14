@@ -13,6 +13,7 @@ import com.userservice.user.dtos.UserProfileDTO;
 import com.userservice.user.entities.MetroCard;
 import com.userservice.user.entities.TravelHistory;
 import com.userservice.user.entities.User;
+import com.userservice.user.exceptions.UserNotFoundException;
 import com.userservice.user.repositories.UserRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -67,9 +68,9 @@ public class UserService {
         return convertToDTO(savedUser);
     }
 
-    public UserProfileDTO getUserProfile(Long userId) throws Exception {
+    public UserProfileDTO getUserProfile(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new Exception("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         List<MetroCardDTO> cards = user.getMetroCards().stream()
                 .map(this::convertToDTO)

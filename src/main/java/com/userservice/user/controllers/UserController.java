@@ -28,7 +28,7 @@ public class UserController {
     }
 
     @GetMapping("/{userId}")
-    public ResponseEntity<UserProfileDTO> getUserProfile(@PathVariable Long userId) throws Exception {
+    public ResponseEntity<UserProfileDTO> getUserProfile(@PathVariable Long userId) {
         return ResponseEntity.ok(userService.getUserProfile(userId));
     }
 }

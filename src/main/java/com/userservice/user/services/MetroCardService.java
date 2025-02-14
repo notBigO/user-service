@@ -1,6 +1,7 @@
 package com.userservice.user.services;
 
 import java.time.LocalDate;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -13,6 +14,10 @@ import com.userservice.user.entities.MetroCard;
 import com.userservice.user.entities.MetroCardStatus;
 import com.userservice.user.entities.TravelHistory;
 import com.userservice.user.entities.User;
+import com.userservice.user.exceptions.InsufficientBalanceException;
+import com.userservice.user.exceptions.InvalidOperationException;
+import com.userservice.user.exceptions.MetroCardNotFoundException;
+import com.userservice.user.exceptions.UserNotFoundException;
 import com.userservice.user.repositories.MetroCardRepository;
 import com.userservice.user.repositories.TravelHistoryRepository;
 import com.userservice.user.repositories.UserRepository;
@@ -34,11 +39,16 @@ public class MetroCardService {
         return convertToDTO(card);
     }
 
-    public MetroCardDTO buyMetroCard(Long userId, BuyMetroCardDTO dto) throws Exception {
+    public MetroCardDTO buyMetroCard(Long userId, BuyMetroCardDTO dto) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new Exception("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         String cardNumber = UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+
+        Optional<MetroCard> cardExisting = metroCardRepository.findByCardNumber(cardNumber);
+        if (cardExisting.isPresent()) {
+            throw new MetroCardNotFoundException("User already has a metro card.");
+        }
 
         MetroCard card = new MetroCard();
         card.setCardNumber(cardNumber);
@@ -51,16 +61,16 @@ public class MetroCardService {
         return convertToDTO(savedCard);
     }
 
-    public void cancelMetroCard(Long userId, Long cardId) throws Exception {
+    public void cancelMetroCard(Long userId, Long cardId) {
         MetroCard card = metroCardRepository.findByIdAndUserId(cardId, userId)
-                .orElseThrow(() -> new Exception("Card not found"));
+                .orElseThrow(() -> new MetroCardNotFoundException("Card not found"));
 
         if (travelHistoryRepository.existsByMetroCardId(cardId)) {
-            throw new Exception("Card has been used and cannot be canceled");
+            throw new InvalidOperationException("Card has been used and cannot be canceled");
         }
 
         if (card.getStatus() == MetroCardStatus.CANCELED) {
-            throw new Exception("Card is already canceled");
+            throw new InvalidOperationException("Card is already canceled");
         }
 
         card.setStatus(MetroCardStatus.CANCELED);
@@ -68,12 +78,12 @@ public class MetroCardService {
         log.info("Metro card canceled: {}", card.getCardNumber());
     }
 
-    public void deleteMetroCard(Long userId, Long cardId) throws Exception {
+    public void deleteMetroCard(Long userId, Long cardId) {
         MetroCard card = metroCardRepository.findByIdAndUserId(cardId, userId)
-                .orElseThrow(() -> new Exception("Card not found"));
+                .orElseThrow(() -> new MetroCardNotFoundException("Card not found"));
 
         if (card.getStatus() != MetroCardStatus.CANCELED) {
-            throw new Exception("Active card cannot be deleted.");
+            throw new InvalidOperationException("Active card cannot be deleted.");
         }
 
         metroCardRepository.delete(card);
@@ -84,12 +94,12 @@ public class MetroCardService {
         MetroCard card = metroCardRepository.findByCardNumber(event.getTicketId())
                 .orElseThrow(() -> {
                     log.error("Metro card not found: {}", event.getTicketId());
-                    return new Exception("Metro card not found");
+                    return new MetroCardNotFoundException("Metro card not found");
                 });
 
         double newBalance = card.getBalance() - event.getFare();
         if (newBalance < 0) {
-            throw new Exception("Insufficient balance");
+            throw new InsufficientBalanceException("Insufficient balance");
         }
 
         card.setBalance(newBalance);

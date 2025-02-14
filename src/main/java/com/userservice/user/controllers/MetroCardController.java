@@ -33,7 +33,7 @@ public class MetroCardController {
     @PostMapping
     public ResponseEntity<MetroCardDTO> buyMetroCard(
             @PathVariable Long userId,
-            @Valid @RequestBody BuyMetroCardDTO dto) throws Exception {
+            @Valid @RequestBody BuyMetroCardDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(metroCardService.buyMetroCard(userId, dto));
     }
